@@ -1,0 +1,11 @@
+/* styles.css */
+
+/* 既存のカスタムスタイルを含める */
+.shadow-light {
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+.draggable-element {
+    touch-action: none;  /* デフォルトのスクロール動作を無効化 */
+}
+
+/* 他のカスタムスタイルがあればここに追加 */

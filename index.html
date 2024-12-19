@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>Countdown Timer</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- React and ReactDOM CDN -->
+  <script src="https://unpkg.com/react@17/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js" crossorigin></script>
+  <!-- Babel for JSX transformation -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <!-- カスタムスタイル -->
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    /* カスタムスタイル：立体感を追加 */
+    .shadow-light {
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+  </style>
+</head>
+<body class="bg-gray-50">
+  <!-- Root div for React -->
+  <div id="root"></div>
+
+  <!-- 外部スクリプト -->
+  <!-- ユーティリティ関数 -->
+  <script type="text/babel" src="src/utils/helpers.js"></script>
+  <!-- カスタムフック -->
+  <script type="text/babel" src="src/hooks/useGenreData.js"></script>
+  <!-- コンポーネント -->
+  <script type="text/babel" src="src/components/TimeProgressClock/TimeProgressClock.js"></script>
+  <script type="text/babel" src="src/components/CountdownTimer/TimerDisplay.js"></script>
+  <script type="text/babel" src="src/components/CountdownTimer/Controls.js"></script>
+  <script type="text/babel" src="src/components/CountdownTimer/GenreSelector.js"></script>
+  <script type="text/babel" src="src/components/CountdownTimer/Popup.js"></script>
+  <script type="text/babel" src="src/components/CountdownTimer/CountdownTimer.js"></script>
+  <!-- メインスクリプト -->
+  <script type="text/babel" src="src/main.js"></script>
+</body>
+</html>
