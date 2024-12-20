@@ -1,5 +1,6 @@
-// --------------- インポート ---------------
+// src/components/TimeProgressClock/TimeProgressClock.js
 const { useRef, useState, useEffect } = React;
+const { useSelector, useDispatch } = ReactRedux;
 
 // TimeProgressClock コンポーネント：キャンバスに時間進行状況を描画
 const TimeProgressClock = ({
@@ -12,23 +13,15 @@ const TimeProgressClock = ({
   currentGenreCumulativeSeconds
 }) => {
   const canvasRef = useRef(null);
+  const dispatch = useDispatch();
 
   // 現在時刻
   const [now, setNow] = useState(new Date());
   const [isBlinking, setIsBlinking] = useState(true);
 
-  // ★ ここがポイント：アラームを配列で一元管理する
-  //   - isOn: アラームが鳴っているかどうか
-  //   - triggeredTime: アラームが鳴り始めた時刻
-  //   - didCancel: キャンセルされたかどうか
-  //   （didCancel はアラームが鳴っている最中にクリック等でキャンセルする場合のフラグ）
-  const [alarms, setAlarms] = useState([
-    { id: 'alarm1', x: 300, y: -5, time: '--:--', isOn: false, triggeredTime: null, didCancel: false },
-    { id: 'alarm2', x: 335, y: -5, time: '--:--', isOn: false, triggeredTime: null, didCancel: false }
-  ]);
-
-  // ドラッグ中に「どのアラーム」を掴んでいるか（配列のインデックスを保存）
-  const [draggingAlarmIndex, setDraggingAlarmIndex] = useState(null);
+  // Redux State: alarms and draggingAlarmIndex
+  const alarms = useSelector((state) => state.alarm.alarms);
+  const draggingAlarmIndex = useSelector((state) => state.alarm.draggingAlarmIndex);
 
   // ドラッグ計測用の参照
   const dragStartPos = useRef({ x: 0, y: 0 });
@@ -53,62 +46,57 @@ const TimeProgressClock = ({
     return () => clearInterval(blinkInterval);
   }, [isRunning, isPaused]);
 
-  // --- 12時間形式に変換する関数 ---
-  const getCurrent12HourTime = (date) => {
-    let hours = date.getHours();
-    const minutes = date.getMinutes();
-    hours = hours % 12 || 12; // 0時は12時として扱う
-    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
-  };
-
   // ★ アラームの時刻に達したかどうかチェック ⇒ 到達時に isOn = true, triggeredTime をセット
   useEffect(() => {
     const formattedNowTime = getCurrent12HourTime(now);
     const currentSec = now.getSeconds();
     
-    setAlarms((prev) =>
-      prev.map((alarm) => {
-        // 既に鳴動中ならスキップ（5分経過まで継続）
-        if (alarm.isOn) return alarm;
-        // '--:--' や '' は無視
-        if (!alarm.time || alarm.time === '--:--') return alarm;
+    // Get current alarms from Redux and update them
+    const updatedAlarms = alarms.map((alarm) => {
+      // 既に鳴動中ならスキップ（5分経過まで継続）
+      if (alarm.isOn) return alarm;
+      // '--:--' や '' は無視
+      if (!alarm.time || alarm.time === '--:--') return alarm;
 
-        // アラーム時刻と一致かつ、秒が 1~3 の間だけトリガー
-        if (
-          alarm.time === formattedNowTime &&
-          currentSec >= 0 && currentSec <= 2
-        ) {
-          return {
-            ...alarm,
-            isOn: true,
-            triggeredTime: new Date(),
-            didCancel: false
-          };
-        }
-        return alarm;
-      })
-    );
-  }, [now]);
+      // アラーム時刻と一致かつ、秒が 1~3 の間だけトリガー
+      if (
+        alarm.time === formattedNowTime &&
+        currentSec >= 0 && currentSec <= 2
+      ) {
+        return {
+          ...alarm,
+          isOn: true,
+          triggeredTime: new Date(),
+          didCancel: false
+        };
+      }
+      return alarm;
+    });
+
+    // Dispatch the updated alarms to Redux
+    dispatch(window.alarmActions.setAlarms(updatedAlarms));
+  }, [now, alarms, dispatch]);
 
   // ★ 鳴動開始後、5分（300秒）経過したら自動オフ
   useEffect(() => {
     const checkInterval = setInterval(() => {
-      setAlarms((prev) =>
-        prev.map((alarm) => {
-          if (!alarm.isOn || !alarm.triggeredTime) return alarm;
+      const updatedAlarms = alarms.map((alarm) => {
+        if (!alarm.isOn || !alarm.triggeredTime) return alarm;
 
-          const elapsed = (new Date() - alarm.triggeredTime) / 1000; // 経過秒
-          if (elapsed >= 300) {
-            // 5分経ったらオフにする
-            return { ...alarm, isOn: false, triggeredTime: null, didCancel: false };
-          }
-          return alarm;
-        })
-      );
+        const elapsed = (new Date() - new Date(alarm.triggeredTime)) / 1000; // 経過秒
+        if (elapsed >= 300) {
+          // 5分経ったらオフにする
+          return { ...alarm, isOn: false, triggeredTime: null, didCancel: false };
+        }
+        return alarm;
+      });
+
+      // Dispatch the updated alarms to Redux
+      dispatch(window.alarmActions.setAlarms(updatedAlarms));
     }, 1000);
 
     return () => clearInterval(checkInterval);
-  }, []);
+  }, [alarms, dispatch]);
 
   // --- ビープ音再生関数 ---
   const playShortBeep = () => {
@@ -140,6 +128,14 @@ const TimeProgressClock = ({
     const total1 = (h1 % 12) * 60 + m1;
     const total2 = (h2 % 12) * 60 + m2;
     return (total2 - total1) === 1;
+  };
+
+  // 12時間形式に変換する関数
+  const getCurrent12HourTime = (date) => {
+    let hours = date.getHours();
+    const minutes = date.getMinutes();
+    hours = hours % 12 || 12; // 0時は12時として扱う
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
   };
 
   // 12時間形式 "HH:MM" をパースして {hour, minute} を返す
@@ -205,7 +201,7 @@ const TimeProgressClock = ({
       const clickRange = alarm.y <= 0 ? 30 : 15;
 
       if (distance < clickRange) {
-        setDraggingAlarmIndex(i);
+        dispatch(window.alarmActions.setDraggingAlarmIndex(i));
         dragStartPos.current = { x: mouseX, y: mouseY };
         hasDragged.current = false;
         break;
@@ -215,7 +211,6 @@ const TimeProgressClock = ({
 
   // ドラッグ中：該当のアラームの位置(x,y) と time を更新
   const handleDragMove = (mouseX, mouseY) => {
-    if (draggingAlarmIndex === null) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -245,19 +240,20 @@ const TimeProgressClock = ({
     const updatedTime = formatAlarmTime(newX, newY, centerX, centerY, outerRadius, midRadius, innerRadius);
 
     // alarms の該当要素だけ更新
-    setAlarms((prev) =>
-      prev.map((alarm, i) => {
-        if (i === draggingAlarmIndex) {
-          return { ...alarm, x: newX, y: newY, time: updatedTime };
-        }
-        return alarm;
-      })
-    );
+    const updatedAlarms = alarms.map((alarm, i) => {
+      if (i === draggingAlarmIndex) {
+        return { ...alarm, x: newX, y: newY, time: updatedTime };
+      }
+      return alarm;
+    });
+
+    // Dispatch the updated alarms to Redux
+    dispatch(window.alarmActions.setAlarms(updatedAlarms));
   };
 
   // ドラッグ終了
   const handleDragEnd = () => {
-    setDraggingAlarmIndex(null);
+    dispatch(window.alarmActions.setDraggingAlarmIndex(null));
     // ドラッグが発生していない場合のみ「キャンセルフラグ」をどう扱うか
     // → 今回は「ドラッグなしでクリックした場合はアラームを即オフにする」等に使うならここでロジックを書く
   };
@@ -344,14 +340,13 @@ const TimeProgressClock = ({
   const handleCanvasClick = () => {
     if (!hasDragged.current) {
       // 鳴動中のアラームがあればキャンセル
-      setAlarms((prev) =>
-        prev.map((alarm) => {
-          if (alarm.isOn) {
-            return { ...alarm, isOn: false, didCancel: true, triggeredTime: null };
-          }
-          return alarm;
-        })
-      );
+      const updatedAlarms = alarms.map((alarm) => {
+        if (alarm.isOn) {
+          return { ...alarm, isOn: false, didCancel: true, triggeredTime: null };
+        }
+        return alarm;
+      });
+      dispatch(window.alarmActions.setAlarms(updatedAlarms));
     }
     hasDragged.current = false;
   };
@@ -644,7 +639,7 @@ const TimeProgressClock = ({
 
       ctx.save();
       const scaleActive = (alarm.isOn && !alarm.didCancel && now.getSeconds() % 2 === 0);
-      const scale = scaleActive ? 12 : 1; // 拡大率
+      const scale = scaleActive ? 1.2 : 1; // 拡大率 (Adjusted for better scaling)
       const size = 24 * scale;
 
       // ビープ音を一度だけ再生するためのチェック
