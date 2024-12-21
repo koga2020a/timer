@@ -737,7 +737,7 @@ const TimeProgressClock = ({
     ctx.shadowBlur = 4;
     ctx.shadowOffsetX = 2;
     ctx.shadowOffsetY = 2;
-    ctx.fillStyle = darkenedGenreColor;
+    ctx.fillStyle = genreColor;
     ctx.fillText(formattedGenreTime, centerX, centerY - 5);
     ctx.shadowColor = 'transparent';
     ctx.shadowBlur = 0;
