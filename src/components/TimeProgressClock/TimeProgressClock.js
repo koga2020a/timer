@@ -705,17 +705,39 @@ const TimeProgressClock = ({
       drawBellIcon(ctx, alarm.x, alarm.y, img, alarm);
     });
 
-    // 中央に累積時間を表示
+    // 色を濃くする関数
+  const darkenColor = (rgbaColor) => {
+    const regex = /rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/;
+    const match = rgbaColor.match(regex);
+
+    if (match) {
+      const r = parseInt(match[1], 10);
+      const g = parseInt(match[2], 10);
+      const b = parseInt(match[3], 10);
+      let a = match[4] !== undefined ? parseFloat(match[4]) : 1.0;
+
+      // アルファ値を濃くする（0.1ずつ加算、ただし最大1.0まで）
+      a = Math.min(a + 0.1, 1.0);
+
+      return `rgba(${r}, ${g}, ${b}, ${a})`;
+    }
+
+    // デフォルト色を返す
+    return rgbaColor;
+  };
+
+  // 中央に累積時間を表示
     ctx.font = 'bold 24px Arial';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     const formattedGenreTime = formatTime(currentGenreCumulativeSeconds);
     const genreColor = genreColors[currentGenre] || '#333333';
+    const darkenedGenreColor = darkenColor(genreColor); // 色を濃くする処理
     ctx.shadowColor = 'rgba(20, 20, 20, 0.5)';
     ctx.shadowBlur = 4;
     ctx.shadowOffsetX = 2;
     ctx.shadowOffsetY = 2;
-    ctx.fillStyle = genreColor;
+    ctx.fillStyle = darkenedGenreColor;
     ctx.fillText(formattedGenreTime, centerX, centerY - 5);
     ctx.shadowColor = 'transparent';
     ctx.shadowBlur = 0;
