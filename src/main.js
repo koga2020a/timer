@@ -18,7 +18,6 @@ const timerSlice = createSlice({
       勉強: 600,
       その他: 900,
     },
-    now: new Date(),
     isBlinking: true,
   },
   reducers: {
@@ -43,9 +42,6 @@ const timerSlice = createSlice({
     setGenreCumulativeSeconds: (state, action) => {
       state.genreCumulativeSeconds = action.payload;
     },
-    setNow: (state, action) => {
-      state.now = action.payload;
-    },
     toggleBlinking: (state) => {
       state.isBlinking = !state.isBlinking;
     },
@@ -60,7 +56,6 @@ const {
   setTimeLeft,
   setCurrentGenre,
   setGenreCumulativeSeconds,
-  setNow,
   toggleBlinking,
 } = timerSlice.actions;
 
