@@ -2,7 +2,7 @@
 const { useRef, useState, useEffect } = React;
 const { useSelector, useDispatch } = window.ReactRedux;
 
-// TimeProgressClock コンポーネント：キャンバスに時間進行状況を描画
+// TimeProgressClock コンポーネント
 const TimeProgressClock = ({
   activeMinutes,
   isRunning,
@@ -15,7 +15,7 @@ const TimeProgressClock = ({
   const canvasRef = useRef(null);
   const dispatch = useDispatch();
 
-  // 現在時刻
+  // 現在時刻をローカルステートとして管理
   const [now, setNow] = useState(new Date());
   const [isBlinking, setIsBlinking] = useState(true);
 
@@ -46,12 +46,12 @@ const TimeProgressClock = ({
     return () => clearInterval(blinkInterval);
   }, [isRunning, isPaused]);
 
-  // ★ アラームの時刻に達したかどうかチェック ⇒ 到達時に isOn = true, triggeredTime をセット
+  // アラームの時刻に達したかどうかチェック ⇒ 到達時に isOn = true, triggeredTime をセット
   useEffect(() => {
     const formattedNowTime = getCurrent12HourTime(now);
     const currentSec = now.getSeconds();
     
-    // Get current alarms from Redux and update them
+    // アラームを更新するか確認
     const updatedAlarms = alarms.map((alarm) => {
       // 既に鳴動中ならスキップ（5分経過まで継続）
       if (alarm.isOn) return alarm;
@@ -73,11 +73,19 @@ const TimeProgressClock = ({
       return alarm;
     });
 
-    // Dispatch the updated alarms to Redux
-    dispatch(window.alarmActions.setAlarms(updatedAlarms));
+    // 変更があればディスパッチ
+    const alarmsChanged = updatedAlarms.some((alarm, index) => {
+      return alarm !== alarms[index];
+    });
+
+    if (alarmsChanged) {
+      console.log('Dispatching setAlarms with:', updatedAlarms);
+      dispatch(window.alarmActions.setAlarms(updatedAlarms));
+      console.log('setAlarms dispatched');
+    }
   }, [now, alarms, dispatch]);
 
-  // ★ 鳴動開始後、5分（300秒）経過したら自動オフ
+  // 鳴動開始後、5分（300秒）経過したら自動オフ
   useEffect(() => {
     const checkInterval = setInterval(() => {
       const updatedAlarms = alarms.map((alarm) => {
@@ -91,8 +99,16 @@ const TimeProgressClock = ({
         return alarm;
       });
 
-      // Dispatch the updated alarms to Redux
-      dispatch(window.alarmActions.setAlarms(updatedAlarms));
+      // 変更があればディスパッチ
+      const alarmsChanged = updatedAlarms.some((alarm, index) => {
+        return alarm !== alarms[index];
+      });
+
+      if (alarmsChanged) {
+        console.log('Dispatching setAlarms with:', updatedAlarms);
+        dispatch(window.alarmActions.setAlarms(updatedAlarms));
+        console.log('setAlarms dispatched');
+      }
     }, 1000);
 
     return () => clearInterval(checkInterval);
@@ -118,7 +134,7 @@ const TimeProgressClock = ({
   // ビープ音が最後に再生された秒数を記録
   const lastBeepSecond = useRef(null);
 
-  // ユーティリティ関数：次の分に進んでいるか判定 (11:59 -> 12:00 のまたぎにも対応)
+  // ユーティリティ関数：次の分に進んでいるか判定
   const isNextMinute = (time1, time2) => {
     const [h1, m1] = time1.split(':').map(Number);
     const [h2, m2] = time2.split(':').map(Number);
@@ -247,8 +263,16 @@ const TimeProgressClock = ({
       return alarm;
     });
 
-    // Dispatch the updated alarms to Redux
-    dispatch(window.alarmActions.setAlarms(updatedAlarms));
+    // 変更があればディスパッチ
+    const alarmsChanged = updatedAlarms.some((alarm, index) => {
+      return alarm !== alarms[index];
+    });
+
+    if (alarmsChanged) {
+      console.log('Dispatching setAlarms with:', updatedAlarms);
+      dispatch(window.alarmActions.setAlarms(updatedAlarms));
+      console.log('setAlarms dispatched');
+    }
   };
 
   // ドラッグ終了
@@ -346,7 +370,16 @@ const TimeProgressClock = ({
         }
         return alarm;
       });
-      dispatch(window.alarmActions.setAlarms(updatedAlarms));
+      // 変更があればディスパッチ
+      const alarmsChanged = updatedAlarms.some((alarm, index) => {
+        return alarm !== alarms[index];
+      });
+
+      if (alarmsChanged) {
+        console.log('Dispatching setAlarms with:', updatedAlarms);
+        dispatch(window.alarmActions.setAlarms(updatedAlarms));
+        console.log('setAlarms dispatched');
+      }
     }
     hasDragged.current = false;
   };
@@ -498,7 +531,7 @@ const TimeProgressClock = ({
     const drawCurrentTimeTriangle = (ctx, centerX, centerY, outerRadius) => {
       const triangleHeight = 6;
       const triangleWidth = 20;
-      const nowDate = new Date();
+      const nowDate = now; // ローカルステートから取得
       const hours = nowDate.getHours() % 12;
       const minutes = nowDate.getMinutes();
       const seconds = nowDate.getSeconds();
@@ -530,7 +563,7 @@ const TimeProgressClock = ({
     const drawCurrentTimeMinuteTriangle = (ctx, centerX, centerY, outerRadius) => {
       const triangleHeight = 3;
       const triangleWidth = 10;
-      const nowDate = new Date();
+      const nowDate = now; // ローカルステートから取得
       const hours = nowDate.getHours() % 12;
       const minutes = nowDate.getMinutes();
       const seconds = nowDate.getSeconds();
@@ -639,7 +672,7 @@ const TimeProgressClock = ({
 
       ctx.save();
       const scaleActive = (alarm.isOn && !alarm.didCancel && now.getSeconds() % 2 === 0);
-      const scale = scaleActive ? 1.2 : 1; // 拡大率 (Adjusted for better scaling)
+      const scale = scaleActive ? 1.2 : 1; // 拡大率
       const size = 24 * scale;
 
       // ビープ音を一度だけ再生するためのチェック
@@ -731,85 +764,3 @@ const TimeProgressClock = ({
     />
   );
 };
-
-// CountdownTimer コンポーネント：TimeProgressClock を利用
-const CountdownTimer = () => {
-  const [activeMinutes, setActiveMinutes] = useState([]);
-  const [isRunning, setIsRunning] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(3600); // 例: 1時間
-  const [currentGenre, setCurrentGenre] = useState('YouTube');
-  const genreColors = {
-    'YouTube': 'rgba(255, 99, 132, 0.5)', // 赤
-    '映画': 'rgba(54, 162, 235, 0.5)',    // 青
-    '勉強': 'rgba(255, 206, 86, 0.5)',   // 黄
-    'その他': 'rgba(75, 192, 192, 0.5)', // 緑
-  };
-  const [genreCumulativeSeconds, setGenreCumulativeSeconds] = useState({
-    'YouTube': 3600,
-    '映画': 1800,
-    '勉強': 600,
-    'その他': 900,
-  });
-
-  // 毎分0秒ごとに現在ジャンルの打刻を activeMinutes に追加（ダミー更新の例）
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const now = new Date();
-      const formattedTime = `${now.getHours() % 12 || 12}:${String(now.getMinutes()).padStart(2, '0')}`;
-      if (now.getSeconds() === 0) {
-        setActiveMinutes((prev) => [...prev, { time: formattedTime, genre: currentGenre }]);
-      }
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [currentGenre]);
-
-  return (
-    <div className="flex flex-col items-center">
-      <h1 className="text-2xl mb-4">Countdown Timer</h1>
-      <TimeProgressClock
-        activeMinutes={activeMinutes}
-        isRunning={isRunning}
-        isPaused={isPaused}
-        genreColors={genreColors}
-        currentGenre={currentGenre}
-        timeLeft={timeLeft}
-        currentGenreCumulativeSeconds={genreCumulativeSeconds[currentGenre] || 0}
-      />
-      <div className="mt-4">
-        <button
-          onClick={() => setIsRunning(!isRunning)}
-          className="px-4 py-2 bg-blue-500 text-white rounded mr-2"
-        >
-          {isRunning ? 'Pause' : 'Start'}
-        </button>
-        <button
-          onClick={() => setIsPaused(!isPaused)}
-          className="px-4 py-2 bg-yellow-500 text-white rounded"
-        >
-          {isPaused ? 'Resume' : 'Pause'}
-        </button>
-      </div>
-      <div className="mt-4">
-        <label className="mr-2">Genre:</label>
-        <select
-          value={currentGenre}
-          onChange={(e) => setCurrentGenre(e.target.value)}
-          className="px-2 py-1 border rounded"
-        >
-          {Object.keys(genreColors).map((genre) => (
-            <option key={genre} value={genre}>
-              {genre}
-            </option>
-          ))}
-        </select>
-      </div>
-    </div>
-  );
-};
-
-// ReactDOMを使用してCountdownTimerをレンダリング
-ReactDOM.render(
-  React.createElement(CountdownTimer),
-  document.getElementById('root')
-);
