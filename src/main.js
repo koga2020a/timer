@@ -1,6 +1,6 @@
 // src/main.js
 const { createSlice, configureStore } = window.RTK;
-const { Provider } = ReactRedux;
+const { Provider } = window.ReactRedux;
 const { useEffect } = React;
 
 // Timer Slice

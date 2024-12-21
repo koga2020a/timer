@@ -1,6 +1,6 @@
 // src/components/TimeProgressClock/TimeProgressClock.js
 const { useRef, useState, useEffect } = React;
-const { useSelector, useDispatch } = ReactRedux;
+const { useSelector, useDispatch } = window.ReactRedux;
 
 // TimeProgressClock コンポーネント：キャンバスに時間進行状況を描画
 const TimeProgressClock = ({
@@ -58,7 +58,7 @@ const TimeProgressClock = ({
       // '--:--' や '' は無視
       if (!alarm.time || alarm.time === '--:--') return alarm;
 
-      // アラーム時刻と一致かつ、秒が 1~3 の間だけトリガー
+      // アラーム時刻と一致かつ、秒が 0~2 の間だけトリガー
       if (
         alarm.time === formattedNowTime &&
         currentSec >= 0 && currentSec <= 2
@@ -535,8 +535,8 @@ const TimeProgressClock = ({
       const minutes = nowDate.getMinutes();
       const seconds = nowDate.getSeconds();
       const totalHours = hours + minutes / 60 + seconds / 3600;
-      const totalMInutes = totalHours * 60;
-      const angle = (totalMInutes / 60) * 2 * Math.PI - Math.PI / 2;
+      const totalMinutes = totalHours * 60;
+      const angle = (totalMinutes / 60) * 2 * Math.PI - Math.PI / 2;
       const x = centerX + (outerRadius + 15) * Math.cos(angle);
       const y = centerY + (outerRadius + 15) * Math.sin(angle);
 
@@ -731,85 +731,3 @@ const TimeProgressClock = ({
     />
   );
 };
-
-// CountdownTimer コンポーネント：TimeProgressClock を利用
-const CountdownTimer = () => {
-  const [activeMinutes, setActiveMinutes] = useState([]);
-  const [isRunning, setIsRunning] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(3600); // 例: 1時間
-  const [currentGenre, setCurrentGenre] = useState('YouTube');
-  const genreColors = {
-    'YouTube': 'rgba(255, 99, 132, 0.5)', // 赤
-    '映画': 'rgba(54, 162, 235, 0.5)',    // 青
-    '勉強': 'rgba(255, 206, 86, 0.5)',   // 黄
-    'その他': 'rgba(75, 192, 192, 0.5)', // 緑
-  };
-  const [genreCumulativeSeconds, setGenreCumulativeSeconds] = useState({
-    'YouTube': 3600,
-    '映画': 1800,
-    '勉強': 600,
-    'その他': 900,
-  });
-
-  // 毎分0秒ごとに現在ジャンルの打刻を activeMinutes に追加（ダミー更新の例）
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const now = new Date();
-      const formattedTime = `${now.getHours() % 12 || 12}:${String(now.getMinutes()).padStart(2, '0')}`;
-      if (now.getSeconds() === 0) {
-        setActiveMinutes((prev) => [...prev, { time: formattedTime, genre: currentGenre }]);
-      }
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [currentGenre]);
-
-  return (
-    <div className="flex flex-col items-center">
-      <h1 className="text-2xl mb-4">Countdown Timer</h1>
-      <TimeProgressClock
-        activeMinutes={activeMinutes}
-        isRunning={isRunning}
-        isPaused={isPaused}
-        genreColors={genreColors}
-        currentGenre={currentGenre}
-        timeLeft={timeLeft}
-        currentGenreCumulativeSeconds={genreCumulativeSeconds[currentGenre] || 0}
-      />
-      <div className="mt-4">
-        <button
-          onClick={() => setIsRunning(!isRunning)}
-          className="px-4 py-2 bg-blue-500 text-white rounded mr-2"
-        >
-          {isRunning ? 'Pause' : 'Start'}
-        </button>
-        <button
-          onClick={() => setIsPaused(!isPaused)}
-          className="px-4 py-2 bg-yellow-500 text-white rounded"
-        >
-          {isPaused ? 'Resume' : 'Pause'}
-        </button>
-      </div>
-      <div className="mt-4">
-        <label className="mr-2">Genre:</label>
-        <select
-          value={currentGenre}
-          onChange={(e) => setCurrentGenre(e.target.value)}
-          className="px-2 py-1 border rounded"
-        >
-          {Object.keys(genreColors).map((genre) => (
-            <option key={genre} value={genre}>
-              {genre}
-            </option>
-          ))}
-        </select>
-      </div>
-    </div>
-  );
-};
-
-// ReactDOMを使用してCountdownTimerをレンダリング
-ReactDOM.render(
-  React.createElement(CountdownTimer),
-  document.getElementById('root')
-);
