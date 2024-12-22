@@ -5,9 +5,11 @@ const formatTime = (seconds) => {
   if (typeof seconds !== 'number' || isNaN(seconds)) {
     return '00:00';
   }
-  const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-  return `${mins}:${secs.toString().padStart(2, '0')}`;
+  const abs_seconds = Math.abs(seconds);
+  const minusChar = (seconds < 0) ? ' -' : '';
+  const mins = Math.floor(abs_seconds / 60);
+  const secs = abs_seconds % 60;
+  return `${minusChar}${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
 };
 
 // ヘルパー関数：日付から曜日を取得

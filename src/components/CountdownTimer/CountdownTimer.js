@@ -54,12 +54,18 @@ const CountdownTimer = () => {
     return saved ? JSON.parse(saved).initialTime || 0 : 0;
   });
   const [alarmContext, setAlarmContext] = useState(null);
+  const [audioContext, setAudioContext] = useState(null);
   const [activeTimeMinutes, setActiveTimeMinutes] = useState(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
     return saved ? JSON.parse(saved).activeTimeMinutes || [] : [];
   });
   const [buttonHistory, setButtonHistory] = useState([]);
   const [currentGenreIndex, setCurrentGenreIndex] = useState(0);
+  const [hasTriggeredAlarm, setHasTriggeredAlarm] = useState(false);
+  const [timerMode, setTimerMode] = useState(() => {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    return saved ? JSON.parse(saved).timerMode || 'continuous' : 'continuous';
+  });
   
   // Refs
   const intervalRef = useRef(null);
@@ -123,7 +129,11 @@ const CountdownTimer = () => {
   };
 
   const stopAlarm = () => {
-    if (alarmContext) {
+    if (audioContext && audioContext.state !== 'closed') {
+      audioContext.close();
+      setAudioContext(null);
+    }
+    if (alarmContext && alarmContext.state !== 'closed') {
       alarmContext.close();
       setAlarmContext(null);
     }
@@ -131,16 +141,31 @@ const CountdownTimer = () => {
 
   const startAlarm = () => {
     stopAlarm();
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    setAlarmContext(audioCtx);
+    const newAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    setAudioContext(newAudioCtx);
+    setAlarmContext(newAudioCtx);
 
-    const waveform = createBeepWaveform(audioCtx);
-    const source = audioCtx.createBufferSource();
+    const waveform = createBeepWaveform(newAudioCtx);
+    const source = newAudioCtx.createBufferSource();
     source.buffer = waveform;
-    source.connect(audioCtx.destination);
+    source.connect(newAudioCtx.destination);
     source.start(0);
     
     addButtonHistory('アラーム発動');
+  };
+
+  // 短いアラームを鳴らす関数 マイナス進行時
+  const startAlarmAtMinus = () => {
+    stopAlarm();
+    const newAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    setAudioContext(newAudioCtx);
+    setAlarmContext(newAudioCtx);
+
+    const waveform = createBeepWaveform(newAudioCtx, 880, 0.1, 0.2, 5);
+    const source = newAudioCtx.createBufferSource();
+    source.buffer = waveform;
+    source.connect(newAudioCtx.destination);
+    source.start(0);
   };
 
   // タイマー制御関数
@@ -160,6 +185,7 @@ const CountdownTimer = () => {
   const setTimerStart = (remainingTime) => {
     setInitialTime(remainingTime);
     setTimeLeft(remainingTime);
+    setHasTriggeredAlarm(false);
   };
 
   const handleTimerStart = (newTime) => {
@@ -170,6 +196,7 @@ const CountdownTimer = () => {
     setTimerStart(newTime);
     setIsRunning(true);
     setIsPaused(false);
+    setHasTriggeredAlarm(false);
     addButtonHistory('開始');
   };
 
@@ -183,6 +210,7 @@ const CountdownTimer = () => {
     }
     setTimeLeft(newTime);
     setInitialTime(newTime);
+    setHasTriggeredAlarm(false);
     
     const actionType = adjustment > 0 ? `+${adjustment}秒` : `${adjustment}秒`;
     addButtonHistory(actionType);
@@ -219,6 +247,7 @@ const CountdownTimer = () => {
     setIsRunning(false);
     setIsPaused(false);
     setInitialTime(0);
+    setHasTriggeredAlarm(false);
   }, [lastResetDate, totalTime, genreCumulativeSeconds]);
 
   useEffect(() => {
@@ -239,15 +268,17 @@ const CountdownTimer = () => {
       genreCumulativeSeconds,
       isRunning,
       isPaused,
-      initialTime
+      initialTime,
+      hasTriggeredAlarm,
+      timerMode
     };
     saveStorageData(storageData);
-  }, [activeTimeMinutes, timeLeft, totalTime, sessionCount, lastResetDate, genreCumulativeSeconds, isRunning, isPaused, initialTime]);
+  }, [activeTimeMinutes, timeLeft, totalTime, sessionCount, lastResetDate, genreCumulativeSeconds, isRunning, isPaused, initialTime, hasTriggeredAlarm, timerMode]);
 
   // activeTimeMinutesを更新
   useEffect(() => {
     if (isRunning && !isPaused) {
-      const currentHour = new Date().getHours(); // 24時間形式   % 12 || 12;
+      const currentHour = new Date().getHours();
       const currentMinute = new Date().getMinutes();
       const timeKey = `${currentHour}:${currentMinute}`;
 
@@ -263,16 +294,26 @@ const CountdownTimer = () => {
       intervalRef.current = setInterval(() => {
         setTimeLeft(prevTimeLeft => {
           if (prevTimeLeft <= 1) {
-            clearInterval(intervalRef.current);
-            setIsRunning(false);
-            setIsPaused(false);
-            setSessionCount(prevCount => prevCount + 1);
-            setTimeLeft(0);
-            startAlarm();
-            return 0;
-          } else {
-            return prevTimeLeft - 1;
+            if (timerMode === 'continuous') {
+              // 既存のマイナス進行モード
+              if (hasTriggeredAlarm && prevTimeLeft % 60 === 0) {
+                startAlarmAtMinus();
+              }
+              if (!hasTriggeredAlarm) {
+                startAlarm();
+                setSessionCount(prevCount => prevCount + 1);
+                setHasTriggeredAlarm(true);
+              }
+              return prevTimeLeft - 1;
+            } else {
+              // 停止モード
+              startAlarm();
+              setSessionCount(prevCount => prevCount + 1);
+              setIsRunning(false);
+              return 0;
+            }
           }
+          return prevTimeLeft - 1;
         });
 
         setTotalTime(prevTotal => prevTotal + 1);
@@ -284,22 +325,26 @@ const CountdownTimer = () => {
     }
 
     return () => clearInterval(intervalRef.current);
-  }, [isRunning, isPaused, currentGenre]);
+  }, [isRunning, isPaused, currentGenre, hasTriggeredAlarm, timerMode]);
 
   // キーボードイベントのハンドリング
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'i') {
-        setShowPopup(prev => !prev); // トグルに変更
+        setShowPopup(prev => !prev);
       } else if (e.key === 'Escape') {
         setShowPopup(false);
+      } else if (showPopup && e.key === '1') {
+        console.log(`showPopup at key 1:${showPopup}   timerMode:${timerMode}`);
+        setTimerMode(prev => prev === 'continuous' ? 'stop' : 'continuous');
+        playShortBeep();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, []);
+  }, [showPopup, timerMode, playShortBeep]);
 
   // 日付フォーマット
   const formatDateFunc = (dateStr) => {
@@ -320,7 +365,6 @@ const CountdownTimer = () => {
       totalTime,
       genreCumulativeSeconds: {...genreCumulativeSeconds}
     };
-    // 今日を最上位に追加し、最新10件を取得
     return [todayRecord, ...records].slice(0, 10);
   };
 
@@ -344,7 +388,7 @@ const CountdownTimer = () => {
     });
   };
 
-  // グローバルなクリックイベントでアラームを停止
+  // グローバルなクリックイントでアラームを停止
   useEffect(() => {
     const handleGlobalClick = () => {
       if (alarmContext) {
@@ -367,11 +411,12 @@ const CountdownTimer = () => {
         formatDate={formatDateFunc}
         formatTime={formatTime}
         copyCSV={copyCSV}
+        timerMode={timerMode}
       />
 
       <div 
         className="flex-1 px-8 p-6 bg-white rounded-xl shadow-light border border-gray-200 backdrop-blur-sm"
-        onClick={alarmContext ? stopAlarm : undefined} // アラームが鳴っている場合のみクリックで停止
+        onClick={alarmContext ? stopAlarm : undefined}
       >
         <TimerDisplay 
           timeLeft={timeLeft}
@@ -384,8 +429,6 @@ const CountdownTimer = () => {
             className="mb-2 text-center cursor-pointer flex items-center justify-center"
             onClick={(e) => {
               e.stopPropagation();
-              //playShortBeep();
-              //handleChangeGenre();
             }}
           >
             <span 
@@ -400,7 +443,7 @@ const CountdownTimer = () => {
               onClick={(e) => {
                 e.stopPropagation();
                 playShortBeep();
-                handleTimeAdjustment(600); // +10分
+                handleTimeAdjustment(600);
               }}
               className={`${buttonBaseStyle} bg-blue-500 hover:bg-blue-600 border-blue-700 text-white px-4 py-2 rounded-lg shadow-light`}
             >
@@ -410,7 +453,7 @@ const CountdownTimer = () => {
               onClick={(e) => {
                 e.stopPropagation();
                 playShortBeep();
-                handleTimeAdjustment(60); // +1分
+                handleTimeAdjustment(60);
               }}
               className={`${buttonBaseStyle} bg-green-500 hover:bg-green-600 border-green-700 text-white px-4 py-2 rounded-lg shadow-light`}
             >
@@ -420,7 +463,7 @@ const CountdownTimer = () => {
               onClick={(e) => {
                 e.stopPropagation();
                 playShortBeep();
-                handleTimeAdjustment(10); // +10秒
+                handleTimeAdjustment(10);
               }}
               className={`${buttonBaseStyle} bg-yellow-500 hover:bg-yellow-600 border-yellow-700 text-white px-4 py-2 rounded-lg shadow-light`}
             >
@@ -442,7 +485,7 @@ const CountdownTimer = () => {
           setTimeLeft={setTimeLeft}
           setInitialTime={setInitialTime}
           intervalRef={intervalRef}
-          timeLeft={timeLeft} // 追加
+          timeLeft={timeLeft}
         />
       </div>
 

@@ -1,11 +1,22 @@
 // src/components/CountdownTimer/Popup.js
 
-const Popup = ({ showPopup, setShowPopup, getLast10Records, genres, formatDate, formatTime, copyCSV }) => {
+const Popup = ({ showPopup, setShowPopup, getLast10Records, genres, formatDate, formatTime, copyCSV, timerMode }) => {
   if (!showPopup) return null;
 
   // 日付をソート: 今日が一番上になるように降順ソート
   const sortedRecords = getLast10Records()
     .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+  const getTimerModeDescription = (mode) => {
+    switch(mode) {
+      case 'continuous':
+        return '連続モード';
+      case 'stop':
+        return '停止モード';
+      default:
+        return '不明なモード';
+    }
+  };
 
   return (
     <div
@@ -24,6 +35,11 @@ const Popup = ({ showPopup, setShowPopup, getLast10Records, genres, formatDate, 
           &times;
         </button>
         <h2 className="text-2xl font-bold mb-4">直近10日の記録</h2>
+        <div className="timer-mode-info mb-4">
+          <small className="text-gray-500">
+          現在のタイマーモード：{timerMode === 'continuous' ? '連続' : '停止'}モード（1キーで切替）
+          </small>
+        </div>
         <div className="overflow-auto max-h-96">
           <table className="table-auto w-full text-sm border-collapse border border-gray-300">
             <thead>
