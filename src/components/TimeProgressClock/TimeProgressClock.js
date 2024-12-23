@@ -11,7 +11,8 @@ const TimeProgressClock = ({
   currentGenre,
   timeLeft,
   currentGenreCumulativeSeconds,
-  startAlarmAtMinus
+  startAlarmAtMinus,
+  playShortBeep
 }) => {
   const canvasRef = useRef(null);
   const dispatch = useDispatch();
@@ -114,23 +115,6 @@ const TimeProgressClock = ({
 
     return () => clearInterval(checkInterval);
   }, [alarms, dispatch]);
-
-  // --- ビープ音再生関数 ---
-  const playShortBeep = () => {
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const buffer = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.1, audioCtx.sampleRate);
-    const channelData = buffer.getChannelData(0);
-
-    for (let i = 0; i < buffer.length; i++) {
-      const t = i / audioCtx.sampleRate;
-      channelData[i] = Math.sin(2 * Math.PI * 440 * t) * 0.5;
-    }
-
-    const source = audioCtx.createBufferSource();
-    source.buffer = buffer;
-    source.connect(audioCtx.destination);
-    source.start(0);
-  };
 
   // ビープ音が最後に再生された秒数を記録
   const lastBeepSecond = useRef(null);
@@ -688,7 +672,7 @@ const TimeProgressClock = ({
       if (alarm.isOn && !alarm.didCancel && scaleActive) {
         const currentSecond = now.getSeconds();
         if (lastBeepSecond.current !== currentSecond) {
-          //playShortBeep();
+          playShortBeep();
           startAlarmAtMinus();
           lastBeepSecond.current = currentSecond;
         }

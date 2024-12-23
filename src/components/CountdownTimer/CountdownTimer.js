@@ -499,6 +499,7 @@ const CountdownTimer = () => {
           timeLeft={timeLeft}
           currentGenreCumulativeSeconds={genreCumulativeSeconds[currentGenre] || 0}
           startAlarmAtMinus={startAlarmAtMinus}
+          playShortBeep={playShortBeep}
         />
         <GenreSelector 
           genres={genres}
