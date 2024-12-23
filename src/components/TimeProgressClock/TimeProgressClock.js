@@ -29,6 +29,16 @@ const TimeProgressClock = ({
   const dragStartPos = useRef({ x: 0, y: 0 });
   const hasDragged = useRef(false);
 
+  // デバッグモードの判定
+  const isDebugMode = new URLSearchParams(window.location.search).get('debug') === 'true';
+  
+  // デバッグログ用のユーティリティ関数
+  const debugLog = (...args) => {
+    if (isDebugMode) {
+      console.log('[TimeProgressClock]', ...args);
+    }
+  };
+
   // 現在時刻を1秒ごとに更新
   useEffect(() => {
     const interval = setInterval(() => {
@@ -81,9 +91,9 @@ const TimeProgressClock = ({
     });
 
     if (alarmsChanged) {
-      console.log('Dispatching setAlarms with:', updatedAlarms);
+      debugLog('Dispatching setAlarms with:', updatedAlarms);
       dispatch(window.alarmActions.setAlarms(updatedAlarms));
-      console.log('setAlarms dispatched');
+      debugLog('setAlarms dispatched');
     }
   }, [now, alarms, dispatch]);
 
@@ -107,16 +117,16 @@ const TimeProgressClock = ({
       });
 
       if (alarmsChanged) {
-        console.log('Dispatching setAlarms with:', updatedAlarms);
+        debugLog('Dispatching setAlarms with:', updatedAlarms);
         dispatch(window.alarmActions.setAlarms(updatedAlarms));
-        console.log('setAlarms dispatched');
+        debugLog('setAlarms dispatched');
       }
     }, 1000);
 
     return () => clearInterval(checkInterval);
   }, [alarms, dispatch]);
 
-  // ビープ音が最後に再生された���数を記録
+  // ビープ音が最後に再生された数を記録
   const lastBeepSecond = useRef(null);
 
   // ユーティリティ関数：次の分に進んでいるか判定
@@ -222,6 +232,7 @@ const TimeProgressClock = ({
     const midRadius = outerRadius * 0.75;
     const innerRadius = midRadius * 0.6;
 
+    /*
     // ドラッグが一定距離以上移動したらドラッグとみなす
     if (!hasDragged.current) {
       const dx = mouseX - dragStartPos.current.x;
@@ -231,6 +242,7 @@ const TimeProgressClock = ({
         hasDragged.current = true;
       }
     }
+      */
 
     // キャンバス境界に収まるように補正
     const margin = 14;
@@ -246,7 +258,8 @@ const TimeProgressClock = ({
         const updatedAlarm = { ...alarm, x: newX, y: newY, time: updatedTime };
         // ローカルストレージに位置を保存
         localStorage.setItem(alarm.id, JSON.stringify({ x: newX, y: newY, time: updatedTime }));
-        console.log('updatedAlarm', updatedAlarm);
+        hasDragged.current = true;
+        debugLog('updatedAlarm', updatedAlarm);
         return updatedAlarm;
       }
       return alarm;
@@ -258,17 +271,37 @@ const TimeProgressClock = ({
     });
 
     if (alarmsChanged) {
-      console.log('Dispatching setAlarms with:', updatedAlarms);
+      debugLog('Drag move update:', updatedAlarms);
       dispatch(window.alarmActions.setAlarms(updatedAlarms));
-      console.log('setAlarms dispatched');
     }
+  };
+
+  // 時刻を1分進める
+  const advanceTimeByOneMinute = (time) => {
+    const { hour, minute } = parseTime(time);
+    const totalMinutes = (hour * 60 + minute + 1) % (12 * 60);
+    const newHour = Math.floor(totalMinutes / 60) || 12;
+    const newMinute = totalMinutes % 60;
+    return `${String(newHour).padStart(2, '0')}:${String(newMinute).padStart(2, '0')}`;
   };
 
   // ドラッグ終了
   const handleDragEnd = () => {
     dispatch(window.alarmActions.setDraggingAlarmIndex(null));
-    // ドラグが発生していない場合のみ「キャンセルフラグ」をどう扱うか
-    // → 今回は「ドラッグなしでクリックした場合はアラームを即オフにする」等に使うならここでロジックを書く
+    
+    if (hasDragged.current === false && draggingAlarmIndex !== null) {
+      const alarm = alarms[draggingAlarmIndex];
+      const updatedTime = advanceTimeByOneMinute(alarm.time);
+      
+      const updatedAlarms = alarms.map((a, i) => 
+        i === draggingAlarmIndex ? { ...a, time: updatedTime } : a
+      );
+
+      dispatch(window.alarmActions.setAlarms(updatedAlarms));
+      debugLog('handleDragEnd type advanceTimeByOneMinute');
+    } else {
+      debugLog('handleDragEnd type Not advance');
+    }
   };
 
   // --- マウスイベント ---
@@ -365,9 +398,8 @@ const TimeProgressClock = ({
       });
 
       if (alarmsChanged) {
-        console.log('Dispatching setAlarms with:', updatedAlarms);
+        debugLog('Canvas click update:', updatedAlarms);
         dispatch(window.alarmActions.setAlarms(updatedAlarms));
-        console.log('setAlarms dispatched');
       }
     }
     hasDragged.current = false;
@@ -687,7 +719,7 @@ const TimeProgressClock = ({
       ctx.shadowOffsetX = 2;
       ctx.shadowOffsetY = 2;
 
-      // 画���描画位置の補正
+      // 描画位置の補正
       const tmpDrawX = x - size / 2;
       const tmpDrawY = y - size / 2;
       const drawX = (tmpDrawX + size > width) ? width - size : (tmpDrawX < 0 ? 0 : tmpDrawX);
@@ -724,7 +756,7 @@ const TimeProgressClock = ({
     return rgbaColor;
   };
 
-  // 中央に累積時間を表示
+  // 中央に累積時間���表示
     ctx.font = 'bold 24px Arial';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
