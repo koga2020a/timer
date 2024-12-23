@@ -10,7 +10,8 @@ const TimeProgressClock = ({
   genreColors,
   currentGenre,
   timeLeft,
-  currentGenreCumulativeSeconds
+  currentGenreCumulativeSeconds,
+  startAlarmAtMinus
 }) => {
   const canvasRef = useRef(null);
   const dispatch = useDispatch();
@@ -278,7 +279,7 @@ const TimeProgressClock = ({
   // ドラッグ終了
   const handleDragEnd = () => {
     dispatch(window.alarmActions.setDraggingAlarmIndex(null));
-    // ドラッグが発生していない場合のみ「キャンセルフラグ」をどう扱うか
+    // ドラ���グが発生していない場合のみ「キャンセルフラグ」をどう扱うか
     // → 今回は「ドラッグなしでクリックした場合はアラームを即オフにする」等に使うならここでロジックを書く
   };
 
@@ -312,7 +313,7 @@ const TimeProgressClock = ({
       handleDragStart(touchX, touchY);
       e.preventDefault(); // シングルタッチ時は preventDefault でスクロール等を無効化
     }
-    // マルチタッチは何もしない
+    // マル���タッチは何もしない
   };
 
   const handleTouchMove = (e) => {
@@ -480,13 +481,15 @@ const TimeProgressClock = ({
 
     ctx.clearRect(0, 0, width, height);
 
+    const activeAlarm = alarms.find(alarm => alarm.isOn && !alarm.didCancel);
+
     // 右上隅にアラーム除外エリア
     const boxWidthTrianglePark = 60;
     ctx.shadowColor = 'rgba(120, 120, 120, 0.5)';
     ctx.shadowBlur = 4;
     ctx.shadowOffsetX = 2;
     ctx.shadowOffsetY = 2;
-    ctx.fillStyle = '#eeeeee';
+    ctx.fillStyle = (activeAlarm && now.getSeconds() % 2 === 0) ? (activeAlarm.id === 'alarm1' ? '#ff0000' : '#0000ff') : '#eeeeee';
     ctx.fillRect(width - boxWidthTrianglePark, 0, boxWidthTrianglePark, 10);
     ctx.shadowColor = 'transparent';
     ctx.shadowBlur = 0;
@@ -494,23 +497,29 @@ const TimeProgressClock = ({
     ctx.shadowOffsetY = 0;
 
     // 外周に数字（1~12）を描画
-    ctx.font = '16px Arial';
+    ctx.font = (activeAlarm && now.getSeconds() % 2 === 0) ? '22px Arial Bold' : '16px Arial';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillStyle = '#333';
     for (let num = 1; num <= 12; num++) {
       const angle = (num / 12) * 2 * Math.PI - Math.PI / 2;
       const r = outerRadius + 20;
       const x = centerX + r * Math.cos(angle);
       const y = centerY + r * Math.sin(angle);
+      ctx.fillStyle = (activeAlarm && now.getSeconds() % 2 === 0) ? (activeAlarm.id === 'alarm1' ? '#ff0000' : '#0000ff') : '#333';
       ctx.fillText(num.toString(), x, y);
     }
 
     // 外円
     ctx.beginPath();
     ctx.arc(centerX, centerY, outerRadius, 0, 2 * Math.PI);
-    ctx.strokeStyle = '#ccc';
-    ctx.lineWidth = 1;
+    // アラ��ムの状態に応じて色を変更
+    if (activeAlarm && now.getSeconds() % 2 === 0) {
+      ctx.strokeStyle = activeAlarm.id === 'alarm1' ? '#ff0000' : '#0000ff';
+      ctx.lineWidth = 2;
+    } else {
+      ctx.strokeStyle = '#ccc';
+      ctx.lineWidth = 1;
+    }
     ctx.stroke();
 
     // 中円
@@ -672,14 +681,15 @@ const TimeProgressClock = ({
 
       ctx.save();
       const scaleActive = (alarm.isOn && !alarm.didCancel && now.getSeconds() % 2 === 0);
-      const scale = scaleActive ? 1.2 : 1; // 拡大率
+      const scale = scaleActive ? 5 : 1; // 拡大率
       const size = 24 * scale;
 
       // ビープ音を一度だけ再生するためのチェック
       if (alarm.isOn && !alarm.didCancel && scaleActive) {
         const currentSecond = now.getSeconds();
         if (lastBeepSecond.current !== currentSecond) {
-          playShortBeep();
+          //playShortBeep();
+          startAlarmAtMinus();
           lastBeepSecond.current = currentSecond;
         }
       }
