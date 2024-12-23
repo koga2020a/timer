@@ -92,7 +92,7 @@ const CountdownTimer = () => {
   };
 
   // オーディオ関数
-  const createBeepWaveform = (ctx, frequency = 880, beepLength = 0.1, interval = 0.2, repeatCount = 20) => {
+  const createBeepWaveform = (ctx, frequency = 880, beepLength = 0.1, interval = 0.2, repeatCount = 5) => {
     const sampleRate = ctx.sampleRate;
     const totalLength = repeatCount * interval;
     const totalSamples = Math.floor(totalLength * sampleRate);
@@ -161,7 +161,7 @@ const CountdownTimer = () => {
     setAudioContext(newAudioCtx);
     setAlarmContext(newAudioCtx);
 
-    const waveform = createBeepWaveform(newAudioCtx, 880, 0.1, 0.2, 5);
+    const waveform = createBeepWaveform(newAudioCtx, 880, 0.1, 0.2, 2);
     const source = newAudioCtx.createBufferSource();
     source.buffer = waveform;
     source.connect(newAudioCtx.destination);
@@ -296,7 +296,7 @@ const CountdownTimer = () => {
           if (prevTimeLeft <= 1) {
             if (timerMode === 'continuous') {
               // 既存のマイナス進行モード
-              if (hasTriggeredAlarm && prevTimeLeft % 60 === 0) {
+              if (hasTriggeredAlarm && prevTimeLeft % 60 === 0 && prevTimeLeft < -30) {
                 startAlarmAtMinus();
               }
               if (!hasTriggeredAlarm) {
