@@ -92,7 +92,7 @@ const CountdownTimer = () => {
   };
 
   // オーディオ関数
-  const createBeepWaveform = (ctx, frequency = 880, beepLength = 0.1, interval = 0.2, repeatCount = 50) => {
+  const createBeepWaveform = (ctx, frequency = 880, beepLength = 0.1, interval = 0.2, repeatCount = 20) => {
     const sampleRate = ctx.sampleRate;
     const totalLength = repeatCount * interval;
     const totalSamples = Math.floor(totalLength * sampleRate);
