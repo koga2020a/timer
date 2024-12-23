@@ -116,7 +116,7 @@ const TimeProgressClock = ({
     return () => clearInterval(checkInterval);
   }, [alarms, dispatch]);
 
-  // ビープ音が最後に再生された秒数を記録
+  // ビープ音が最後に再生された���数を記録
   const lastBeepSecond = useRef(null);
 
   // ユーティリティ関数：次の分に進んでいるか判定
@@ -243,7 +243,11 @@ const TimeProgressClock = ({
     // alarms の該当要素だけ更新
     const updatedAlarms = alarms.map((alarm, i) => {
       if (i === draggingAlarmIndex) {
-        return { ...alarm, x: newX, y: newY, time: updatedTime };
+        const updatedAlarm = { ...alarm, x: newX, y: newY, time: updatedTime };
+        // ローカルストレージに位置を保存
+        localStorage.setItem(alarm.id, JSON.stringify({ x: newX, y: newY, time: updatedTime }));
+        console.log('updatedAlarm', updatedAlarm);
+        return updatedAlarm;
       }
       return alarm;
     });
@@ -263,7 +267,7 @@ const TimeProgressClock = ({
   // ドラッグ終了
   const handleDragEnd = () => {
     dispatch(window.alarmActions.setDraggingAlarmIndex(null));
-    // ドラ���グが発生していない場合のみ「キャンセルフラグ」をどう扱うか
+    // ドラグが発生していない場合のみ「キャンセルフラグ」をどう扱うか
     // → 今回は「ドラッグなしでクリックした場合はアラームを即オフにする」等に使うならここでロジックを書く
   };
 
@@ -297,7 +301,7 @@ const TimeProgressClock = ({
       handleDragStart(touchX, touchY);
       e.preventDefault(); // シングルタッチ時は preventDefault でスクロール等を無効化
     }
-    // マル���タッチは何もしない
+    // マルタッチは何もしない
   };
 
   const handleTouchMove = (e) => {
@@ -496,7 +500,7 @@ const TimeProgressClock = ({
     // 外円
     ctx.beginPath();
     ctx.arc(centerX, centerY, outerRadius, 0, 2 * Math.PI);
-    // アラ��ムの状態に応じて色を変更
+    // アラームの状態に応じて色を変更
     if (activeAlarm && now.getSeconds() % 2 === 0) {
       ctx.strokeStyle = activeAlarm.id === 'alarm1' ? '#ff0000' : '#0000ff';
       ctx.lineWidth = 2;
@@ -683,7 +687,7 @@ const TimeProgressClock = ({
       ctx.shadowOffsetX = 2;
       ctx.shadowOffsetY = 2;
 
-      // 画像描画位置の補正
+      // 画���描画位置の補正
       const tmpDrawX = x - size / 2;
       const tmpDrawY = y - size / 2;
       const drawX = (tmpDrawX + size > width) ? width - size : (tmpDrawX < 0 ? 0 : tmpDrawX);

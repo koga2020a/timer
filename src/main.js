@@ -58,13 +58,33 @@ const {
   toggleBlinking,
 } = timerSlice.actions;
 
+// ローカルストレージから保存された位置を読み込む関数
+const getStoredAlarmPosition = (alarmId) => {
+  const stored = localStorage.getItem(alarmId);
+  console.log('stored', stored);
+  console.log('alarmId', alarmId);
+  return stored ? JSON.parse(stored) : null;
+};
+
 // Alarm Slice
 const alarmSlice = createSlice({
   name: 'alarm',
   initialState: {
     alarms: [
-      { id: 'alarm1', x: 300, y: -5, time: '--:--', isOn: false, triggeredTime: null, didCancel: false },
-      { id: 'alarm2', x: 335, y: -5, time: '--:--', isOn: false, triggeredTime: null, didCancel: false },
+      {
+        id: 'alarm1',
+        ...getStoredAlarmPosition('alarm1') || { x: 300, y: -5 ,time: '--:--'},  // デフォルト値は元の値を使用
+        isOn: false,
+        triggeredTime: null,
+        didCancel: false
+      },
+      {
+        id: 'alarm2',
+        ...getStoredAlarmPosition('alarm2') || { x: 335, y: -5 ,time: '--:--'},  // デフォルト値は元の値を使用
+        isOn: false,
+        triggeredTime: null,
+        didCancel: false
+      },
     ],
     draggingAlarmIndex: null,
   },
@@ -80,6 +100,16 @@ const alarmSlice = createSlice({
     },
     setDraggingAlarmIndex: (state, action) => {
       state.draggingAlarmIndex = action.payload;
+    },
+    updateAlarmPosition: (state, action) => {
+      const { id, x, y } = action.payload;
+      const alarm = state.alarms.find(a => a.id === id);
+      if (alarm) {
+        alarm.x = x;
+        alarm.y = y;
+        // ローカルストレージに保存
+        localStorage.setItem(id, JSON.stringify({ x, y }));
+      }
     },
   },
 });
