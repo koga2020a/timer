@@ -330,6 +330,8 @@ const CountdownTimer = () => {
   // キーボードイベントのハンドリング
   useEffect(() => {
     const handleKeyDown = (e) => {
+      const addTimeKeys = ['q', 'w', 'e', 'a', 's', 'd', 'z', 'x', 'c'];
+      
       if (e.key === 'i') {
         setShowPopup(prev => !prev);
       } else if (e.key === 'Escape') {
@@ -338,13 +340,21 @@ const CountdownTimer = () => {
         console.log(`showPopup at key 1:${showPopup}   timerMode:${timerMode}`);
         setTimerMode(prev => prev === 'continuous' ? 'stop' : 'continuous');
         playShortBeep();
+      } else if (addTimeKeys.includes(e.key.toLowerCase())) {
+        e.preventDefault(); // 必要に応じてデフォルトの動作を防止
+        if (isRunning) {
+          handleTimeAdjustment(60); // 1分追加
+        } else {
+          handleTimerStart(timeLeft + 60); // 1分追加してタイマー開始
+        }
+        playShortBeep();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [showPopup, timerMode, playShortBeep]);
+  }, [showPopup, timerMode, isRunning, timeLeft, handleTimeAdjustment, handleTimerStart, playShortBeep]);
 
   // 日付フォーマット
   const formatDateFunc = (dateStr) => {
