@@ -9,3 +9,13 @@
 }
 
 /* 他のカスタムスタイルがあればここに追加 */
+/* src/components/CountdownTimer/CountdownTimer.css */
+
+.flash {
+  animation: flashAnimation 0.5s;
+}
+
+@keyframes flashAnimation {
+  from { background-color: yellow; }
+  to { background-color: transparent; }
+}

@@ -177,11 +177,13 @@ const TimeProgressClock = ({
 
   // 秒を mm:ss 形式にフォーマット
   const formatTime = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    const sign = seconds < 0 ? '-' : '';
+    const absSeconds = Math.abs(seconds);
+    const mins = Math.floor(absSeconds / 60);
+    const secs = absSeconds % 60;
+    return `${sign} ${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
   };
-
+  
   // アラームアイコン (x, y) から時刻を計算し "HH:MM" を返す。内円や右上隅なら '' を返す。
   const formatAlarmTime = (x, y, centerX, centerY, outerRadius, midRadius, innerRadius) => {
     const dx = x - centerX;
@@ -736,27 +738,27 @@ const TimeProgressClock = ({
     });
 
     // 色を濃くする関数
-  const darkenColor = (rgbaColor) => {
-    const regex = /rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/;
-    const match = rgbaColor.match(regex);
+    const darkenColor = (rgbaColor) => {
+      const regex = /rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/;
+      const match = rgbaColor.match(regex);
 
-    if (match) {
-      const r = parseInt(match[1], 10);
-      const g = parseInt(match[2], 10);
-      const b = parseInt(match[3], 10);
-      let a = match[4] !== undefined ? parseFloat(match[4]) : 1.0;
+      if (match) {
+        const r = parseInt(match[1], 10);
+        const g = parseInt(match[2], 10);
+        const b = parseInt(match[3], 10);
+        let a = match[4] !== undefined ? parseFloat(match[4]) : 1.0;
 
-      // アルファ値を濃くする（0.1ずつ加算、ただし最大1.0まで）
-      a = Math.min(a + 0.1, 1.0);
+        // アルファ値を濃くする（0.1ずつ加算、ただし最大1.0まで）
+        a = Math.min(a + 0.1, 1.0);
 
-      return `rgba(${r}, ${g}, ${b}, ${a})`;
-    }
+        return `rgba(${r}, ${g}, ${b}, ${a})`;
+      }
 
-    // デフォルト色を返す
-    return rgbaColor;
-  };
+      // デフォルト色を返す
+      return rgbaColor;
+    };
 
-  // 中央に累積時間���表示
+    // 中央に累積時間を表示
     ctx.font = 'bold 24px Arial';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';

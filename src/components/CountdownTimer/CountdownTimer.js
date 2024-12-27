@@ -66,6 +66,16 @@ const CountdownTimer = () => {
     const saved = localStorage.getItem(STORAGE_KEY);
     return saved ? JSON.parse(saved).timerMode || 'continuous' : 'continuous';
   });
+
+  // 新しい状態変数：フラッシュ効果用
+  const [flashTotalTime, setFlashTotalTime] = useState(false);
+  const [flashGenreTime, setFlashGenreTime] = useState(false);
+
+  // 新しい状態変数：総調整時間（上下矢印キーでの調整合計）
+  const [cumulativeAdjustSeconds, setCumulativeAdjustSeconds] = useState(() => {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    return saved ? JSON.parse(saved).cumulativeAdjustSeconds || 0 : 0;
+  });
   
   // Refs
   const intervalRef = useRef(null);
@@ -168,6 +178,20 @@ const CountdownTimer = () => {
     source.start(0);
   };
 
+  // 短いアラームを鳴らす関数 開始時
+  const startAlarmAtStart = () => {
+    stopAlarm();
+    const newAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    setAudioContext(newAudioCtx);
+    setAlarmContext(newAudioCtx);
+
+    const waveform = createBeepWaveform(newAudioCtx, 680, 0.1, 0.2, 2);
+    const source = newAudioCtx.createBufferSource();
+    source.buffer = waveform;
+    source.connect(newAudioCtx.destination);
+    source.start(0);
+  };
+
   // タイマー制御関数
   const addButtonHistory = (buttonType) => {
     const now = new Date();
@@ -203,7 +227,9 @@ const CountdownTimer = () => {
   const handleTimeAdjustment = (adjustment) => {
     console.log('Time adjustment called:', { adjustment, currentTimeLeft: timeLeft, isRunning, isPaused });
     
-    let newTime = Math.max(0, timeLeft + adjustment);
+    let newTime = timeLeft + adjustment;
+    if (newTime < 0) newTime = 0; // 負の時間を許容しない
+
     if (typeof newTime !== 'number' || isNaN(newTime)) {
       console.error('handleTimeAdjustment: newTime is not a valid number', newTime);
       return;
@@ -212,12 +238,22 @@ const CountdownTimer = () => {
     setInitialTime(newTime);
     setHasTriggeredAlarm(false);
     
-    const actionType = adjustment > 0 ? `+${adjustment}秒` : `${adjustment}秒`;
+    const actionType = adjustment > 0 ? `+${adjustment / 60}分` : `${adjustment / 60}分`;
     addButtonHistory(actionType);
   };
 
   const handleChangeGenre = () => {
     setCurrentGenreIndex(prevIndex => (prevIndex + 1) % genres.length);
+  };
+
+  // 新しい関数：タイマーモードをトグル
+  const toggleTimerMode = () => {
+    setTimerMode(prevMode => {
+      const newMode = prevMode === 'continuous' ? 'stop' : 'continuous';
+      addButtonHistory(`タイマーモード: ${newMode === 'continuous' ? '連続' : '停止'}`);
+      playShortBeep();
+      return newMode;
+    });
   };
 
   // 日付変更の処理
@@ -248,6 +284,7 @@ const CountdownTimer = () => {
     setIsPaused(false);
     setInitialTime(0);
     setHasTriggeredAlarm(false);
+    setCumulativeAdjustSeconds(0); // 総調整時間をリセット
   }, [lastResetDate, totalTime, genreCumulativeSeconds]);
 
   useEffect(() => {
@@ -270,10 +307,11 @@ const CountdownTimer = () => {
       isPaused,
       initialTime,
       hasTriggeredAlarm,
-      timerMode
+      timerMode,
+      cumulativeAdjustSeconds
     };
     saveStorageData(storageData);
-  }, [activeTimeMinutes, timeLeft, totalTime, sessionCount, lastResetDate, genreCumulativeSeconds, isRunning, isPaused, initialTime, hasTriggeredAlarm, timerMode]);
+  }, [activeTimeMinutes, timeLeft, totalTime, sessionCount, lastResetDate, genreCumulativeSeconds, isRunning, isPaused, initialTime, hasTriggeredAlarm, timerMode, cumulativeAdjustSeconds]);
 
   // activeTimeMinutesを更新
   useEffect(() => {
@@ -316,6 +354,7 @@ const CountdownTimer = () => {
           return prevTimeLeft - 1;
         });
 
+        // `totalTime` が必要ない場合は以下を削除またはコメントアウト
         setTotalTime(prevTotal => prevTotal + 1);
         setGenreCumulativeSeconds(prev => ({
           ...prev,
@@ -330,31 +369,129 @@ const CountdownTimer = () => {
   // キーボードイベントのハンドリング
   useEffect(() => {
     const handleKeyDown = (e) => {
-      const addTimeKeys = ['q', 'w', 'e', 'a', 's', 'd', 'z', 'x', 'c'];
+      const addTimeKeys = ['q', 'a', 'z'];
       
-      if (e.key === 'i') {
-        setShowPopup(prev => !prev);
-      } else if (e.key === 'Escape') {
-        setShowPopup(false);
-      } else if (showPopup && e.key === '1') {
-        console.log(`showPopup at key 1:${showPopup}   timerMode:${timerMode}`);
-        setTimerMode(prev => prev === 'continuous' ? 'stop' : 'continuous');
-        playShortBeep();
-      } else if (addTimeKeys.includes(e.key.toLowerCase())) {
+      if (e.key === ' ' || e.key.toLowerCase() === 'p') { // スペースキー または pキー
+        e.preventDefault(); // スクロールなどのデフォルト動作を防止
+        if (isRunning && !isPaused) {
+          setIsPaused(true);
+          addButtonHistory('一時停止');
+          playShortBeep();
+        }
+        // 一時停止状態でスペースキーを押しても何もしない
+      } else if (addTimeKeys.includes(e.key.toLowerCase())) { // q, a, z キー
         e.preventDefault(); // 必要に応じてデフォルトの動作を防止
         if (isRunning) {
           handleTimeAdjustment(60); // 1分追加
+          if (isPaused) {
+            setIsPaused(false); // 一時停止中なら再開
+            addButtonHistory('開始'); // 再開の履歴を追加
+          }
         } else {
           handleTimerStart(timeLeft + 60); // 1分追加してタイマー開始
         }
         playShortBeep();
+        //startAlarmAtStart();
+      } else if (e.key === 'Enter') { // Enterキー
+        e.preventDefault();
+        if (isRunning && isPaused) {
+          setIsPaused(false);
+          addButtonHistory('再開');
+          playShortBeep();
+          //startAlarmAtStart();
+        } else if (!isRunning) {
+          handleTimerStart(initialTime > 0 ? initialTime : 60); // 初期時間があればそれを、なければ1分で開始
+          addButtonHistory('開始');
+          playShortBeep();
+          //startAlarmAtStart();
+        }
+        // 開始状態でEnterキーを押しても何もしない
+      }
+      // 以下に ArrowUp と ArrowDown のハンドリングを追加a
+      else if (e.key === 'ArrowUp') { // 上矢印キー
+        e.preventDefault();
+        // 30秒追加
+        setTotalTime(prevTotal => prevTotal + 30);
+        setGenreCumulativeSeconds(prev => ({
+          ...prev,
+          [currentGenre]: (prev[currentGenre] || 0) + 30
+        }));
+        setCumulativeAdjustSeconds(prev => prev + 30); // 総調整時間を追加
+        addButtonHistory('+30秒');
+        playShortBeep();
+        // フラッシュ効果をトリガー
+        setFlashTotalTime(true);
+        setFlashGenreTime(true);
+        setTimeout(() => {
+          setFlashTotalTime(false);
+          setFlashGenreTime(false);
+        }, 500); // 0.5秒後にフラッシュを解除
+      }
+      else if (e.key === 'ArrowDown') { // 下矢印キー
+        e.preventDefault();
+        
+        // 実際に減算できる時間を計算（30秒または残りの時間）
+        const actualSubtracted = Math.min(30, totalTime);
+      
+        // totalTimeを減算
+        setTotalTime(prevTotal => prevTotal - actualSubtracted);
+      
+        // genreCumulativeSecondsを実際に減算できた分だけ減らす
+        setGenreCumulativeSeconds(prev => ({
+          ...prev,
+          [currentGenre]: Math.max((prev[currentGenre] || 0) - actualSubtracted, 0)
+        }));
+      
+        // cumulativeAdjustSecondsを実際に減算できた分だけ減らす
+        setCumulativeAdjustSeconds(prev => prev - actualSubtracted); // 総調整時間を減少
+      
+        // 履歴に実際に減算した秒数を記録
+        addButtonHistory(`-${actualSubtracted}秒`);
+        
+        // ビープ音を再生
+        playShortBeep();
+      
+        // フラッシュ効果をトリガー
+        setFlashTotalTime(true);
+        setFlashGenreTime(true);
+        setTimeout(() => {
+          setFlashTotalTime(false);
+          setFlashGenreTime(false);
+        }, 500); // 0.5秒後にフラッシュを解除
+      }
+      // `i`キーのハンドリングを追加
+      else if (e.key.toLowerCase() === 'i') { // iキー
+        e.preventDefault();
+        setShowPopup(true); // ポップアップを表示
+        addButtonHistory('Popup表示'); // 履歴に記録
+        playShortBeep(); // ビープ音を再生
+      }
+      // `1`キーのハンドリングを追加
+      else if (e.key === '1') { // 1キー
+        if (showPopup) { // ポップアップが表示されている場合のみ
+          e.preventDefault();
+          toggleTimerMode(); // タイマーモードをトグル
+        }
+      }
+      // **追加部分: Escapeキーでポップアップを閉じる**
+      else if (e.key === 'Escape') { // Escapeキー
+        if (showPopup) {
+          e.preventDefault();
+          setShowPopup(false); // ポップアップを閉じる
+          addButtonHistory('Popup閉じる'); // 履歴に記録
+          playShortBeep(); // ビープ音を再生
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [showPopup, timerMode, isRunning, timeLeft, handleTimeAdjustment, handleTimerStart, playShortBeep]);
+  }, [
+    isRunning, isPaused, timeLeft, initialTime, handleTimeAdjustment, handleTimerStart, 
+    playShortBeep, startAlarmAtStart, currentGenre, showPopup, toggleTimerMode,
+    setCumulativeAdjustSeconds, totalTime
+  ]);
 
   // 日付フォーマット
   const formatDateFunc = (dateStr) => {
@@ -411,6 +548,15 @@ const CountdownTimer = () => {
     };
   }, [alarmContext]);
 
+  // 時刻を mm:ss 形式にフォーマット
+  const formatTime = (seconds) => {
+    const sign = seconds < 0 ? '-' : '';
+    const absSeconds = Math.abs(seconds);
+    const mins = Math.floor(absSeconds / 60);
+    const secs = absSeconds % 60;
+    return `${sign} ${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  };
+  
   return (
     <div className="flex flex-col md:flex-row max-w-4xl mx-auto gap-6 items-start p-6">
       <Popup 
@@ -423,16 +569,21 @@ const CountdownTimer = () => {
         copyCSV={copyCSV}
         timerMode={timerMode}
       />
-
+  
       <div 
         className="flex-1 px-8 p-6 bg-white rounded-xl shadow-light border border-gray-200 backdrop-blur-sm"
         onClick={alarmContext ? stopAlarm : undefined}
       >
-        <TimerDisplay 
-          timeLeft={timeLeft}
-          totalTime={totalTime}
-          sessionCount={sessionCount}
-        />
+        {/* フラッシュ効果を適用 */}
+        <div className={flashTotalTime ? 'flash' : ''} >
+            <TimerDisplay 
+              timeLeft={timeLeft}
+              totalTime={totalTime}
+              sessionCount={sessionCount}
+              cumulativeAdjustSeconds={cumulativeAdjustSeconds} // 追加
+              formatTime={formatTime} // 追加
+            />
+        </div>
 
         <div className="mb-6">
           <div 
@@ -500,17 +651,20 @@ const CountdownTimer = () => {
       </div>
 
       <div className="flex flex-col items-center">
-        <TimeProgressClock 
-          activeMinutes={activeTimeMinutes}
-          isRunning={isRunning}
-          isPaused={isPaused}
-          genreColors={genreColors}
-          currentGenre={currentGenre}
-          timeLeft={timeLeft}
-          currentGenreCumulativeSeconds={genreCumulativeSeconds[currentGenre] || 0}
-          startAlarmAtMinus={startAlarmAtMinus}
-          playShortBeep={playShortBeep}
-        />
+        {/* フラッシュ効果を適用 */}
+        <div className={flashGenreTime ? 'flash' : ''}>
+          <TimeProgressClock 
+            activeMinutes={activeTimeMinutes}
+            isRunning={isRunning}
+            isPaused={isPaused}
+            genreColors={genreColors}
+            currentGenre={currentGenre}
+            timeLeft={timeLeft}
+            currentGenreCumulativeSeconds={genreCumulativeSeconds[currentGenre] || 0}
+            startAlarmAtMinus={startAlarmAtMinus}
+            playShortBeep={playShortBeep}
+          />
+        </div>
         <GenreSelector 
           genres={genres}
           genreColors={genreColors}
